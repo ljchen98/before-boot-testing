@@ -1,159 +1,48 @@
-coreNum = 3
-Memory_wr_size = 1024
-outputPath = "./head.S"
-
-# if __name__ == '__main__':
-wBuff = []
-
-wBuff.append("#include <platform.h>")
-wBuff.append("#include <smp.h>")
-wBuff.append("#include \"common.h\"")
-wBuff.append("")
-wBuff.append("  .section .text.init")
-wBuff.append("  .option norvc")
-wBuff.append("  .globl _prog_start")
-wBuff.append("_prog_start:")
-wBuff.append("  // initialize")
-
-wBuff.append("  li s3, " + str(coreNum) +" // Core Num")
-wBuff.append("  li sp, (PAYLOAD_DEST + 0xffff000)")
-wBuff.append("  li s1, 0 // assume hartid 0 not pause")
-wBuff.append("  smp_pause(s1, s2)")
-wBuff.append("  call init_uart")
-wBuff.append("  smp_resume(s1, s2)")
-wBuff.append("  ")
-wBuff.append("  li s4, 0  ")
-wBuff.append("single_core:")
-wBuff.append("  addi s1, s4, 0")
-wBuff.append("  smp_pause(s1, s2)")
-wBuff.append("  csrr a0, mhartid")
-wBuff.append("  call singlecore_mem_wr_B2B")
-wBuff.append("  csrr a0, mhartid")
-wBuff.append("  call singlecore_mem_wr_nonB2B")
-wBuff.append("  csrr a0, mhartid")
-wBuff.append("  call singlecore_mem_Bit_wr_B2B")
-wBuff.append("  csrr a0, mhartid")
-wBuff.append("  call singlecore_mem_Bit_wr_nonB2B")
-wBuff.append("  smp_resume(s1, s2)")
-wBuff.append("  addi s4, s4, 1")
-wBuff.append("  blt s4, s3, single_core")
-wBuff.append("")
-wBuff.append("  li s4, 0")
-wBuff.append("multi_core:")
-wBuff.append("  li s5, 0  ")
-wBuff.append("multi_core_1:")
-wBuff.append("  beq s4, s5, increase")
-wBuff.append("  // hart s4 -- For notice and write")
-wBuff.append("  addi s1, s4, 0")
-wBuff.append("  smp_pause(s1, s2)")
-wBuff.append("  addi a0, s4, 0")
-wBuff.append("  addi a1, s5, 0")
-wBuff.append("  call print_multi_core_info")
-wBuff.append("  csrr a0, mhartid")
-wBuff.append("  call multicore_mem_w")
-wBuff.append("  smp_resume(s1, s2)")
-wBuff.append("  // hart s5 -- For read and check")
-wBuff.append("  addi s1, s5, 0")
-wBuff.append("  smp_pause(s1, s2)")
-wBuff.append("  csrr a0, mhartid")
-wBuff.append("  call multicore_mem_r")
-wBuff.append("  smp_resume(s1, s2)")
-wBuff.append("increase:    ")
-wBuff.append("  addi s5, s5, 1")
-wBuff.append("  blt s5, s3, multi_core_1")
-wBuff.append("  addi s4, s4, 1")
-wBuff.append("  blt s4, s3, multi_core")
-wBuff.append("")
-
-wBuff.append("#############################")
-wBuff.append("  li s1, 0")
-wBuff.append("  smp_pause(s1, s2)")
-wBuff.append("  li sp, (PAYLOAD_DEST + 0xffff000)")
-wBuff.append("  call main")
-wBuff.append("  smp_resume(s1, s2)")
-
-wBuff.append("  csrr a0, mhartid // hartid for next level bootloader")
-wBuff.append("  la a1, dtb // dtb address for next level bootloader")
-wBuff.append("  li s1, PAYLOAD_DEST")
-wBuff.append("  jr s1")
-
-wBuff.append("  .section .dtb")
-wBuff.append("  .align 3")
-wBuff.append("dtb:")
-wBuff.append("")
-
-f = open(outputPath, 'w')
-f.writelines([line + '\n' for line in wBuff])
-f.close()
-
-print("Successful Ouput in " + outputPath)
+import os
+#coding=utf-8
+def generateTestConfig (coreNum, L2_cache_size, outputPath, wr_size = 10, wr_bit_size = 4):
+    wBuff = []
+    wBuff.append("#ifndef _TEST_CONFIG_H")
+    wBuff.append("#define _TEST_CONFIG_H")
+    wBuff.append("")
+    wBuff.append("#define CORE_NUM " + str(coreNum))
+    wBuff.append("#define L2_CACHE_SIZE " + str(L2_cache_size) + "  // L2 Cache 的大小 (in Bytes)")
+    wBuff.append("#define MEMORY_SIZE MEMORY_MEM_SIZE               // RAM 的大小 (in Bytes)")
+    wBuff.append("")
+    wBuff.append("#define MEMORY_WR_SIZE (L2_CACHE_SIZE * " + str(wr_size) + ")        // 小范围测试")
+    wBuff.append("#define MEMORY_WR_SIZE_BIT (L2_CACHE_SIZE * " + str(wr_bit_size) + ")")
+    wBuff.append("")
+    wBuff.append("// #define MEMORY_WR_SIZE MEMORY_SIZE ")
+    wBuff.append("#define DEFINED_TYPE uint8_t                      // 访存最小单位的类型 (u_int8_t, u_int16_t, etc.)")
+    wBuff.append("#define TYPE_WIDTH (sizeof(DEFINED_TYPE) << 3)    // 计算出访存最小单位的宽度 (in bits) (e.g. 1 Byte = 8 bits)")
+    wBuff.append("#define TYPE_RANGE (1 << TYPE_WIDTH)              // 计算出访存最小单位的范围 (e.g. 1 Byte 的范围为 256)")
+    wBuff.append("")
+    wBuff.append("#define OUTPUT_SHIFT 37                           // 在输出扫描的地址时，每 OUTPUT_SHIFT 个地址输出一次")
+    wBuff.append("")
+    wBuff.append("#endif")
+    f = open(outputPath + "testConfig.h", 'w')
+    f.writelines([line + '\n' for line in wBuff])
+    f.close()
+    return
 
 
+def beforeBootTest (coreNum, L2_cache_size, outputPath):
+    """
+    功能：
+        输出 testConfig.h，配置启动前测试用例的参数，并配置测试用例的 BootROM
+    参数：
+        coreNum: 进行启动前测试的核心数量
+        L2_cache_size: L2 Cache 的大小，这个参数决定内存测试的范围大小
+        outputPath: 输出 testConfig.h 的路径
+    """
+    generateTestConfig(coreNum, L2_cache_size, outputPath)
+    val1 = os.system('chmod u+x ./util/setup_boot_test.sh')
+    val2 = os.system('chmod ./util/setup_boot_test.sh set ' + outputPath)
+    return
 
+def cleanTest():
+    val1 = os.system('chmod u+x ./util/setup_boot_test.sh')
+    val2 = os.system('chmod ./util/setup_boot_test.sh clean '+ outputPath)
+    return
 
-# wBuff.append("  li sp, (PAYLOAD_DEST + 0xffff000)")
-# wBuff.append("  li s1, 0 // assume hartid 0 not pause")
-# wBuff.append("  smp_pause(s1, s2)")
-# wBuff.append("  call init_uart")
-# wBuff.append("  smp_resume(s1, s2)")
-# wBuff.append("")
-
-# for i in range(coreNum):
-#     wBuff.append("  // hartid " + str(i))
-#     wBuff.append("  li s1, " + str(i))
-#     wBuff.append("  smp_pause(s1, s2)")
-#     wBuff.append("  csrr a0, mhartid")
-#     wBuff.append("  call singlecore_mem_wr_B2B")
-#     wBuff.append("  csrr a0, mhartid")
-#     wBuff.append("  call singlecore_mem_wr_nonB2B")
-#     wBuff.append("  csrr a0, mhartid")
-#     wBuff.append("  call singlecore_mem_Bit_wr_B2B")
-#     wBuff.append("  csrr a0, mhartid")
-#     wBuff.append("  call singlecore_mem_Bit_wr_nonB2B")
-#     wBuff.append("  smp_resume(s1, s2)")
-#     wBuff.append("")
-
-
-# for i in range(coreNum):
-#     for j in range(coreNum):
-#         if i==j:
-#             continue
-#         wBuff.append("  // hartid " + str(i) + " Write; hartid " + str(j) + " Read")
-#         wBuff.append("  // For Notice")
-#         wBuff.append("  li s1, 0 ")
-#         wBuff.append("  smp_pause(s1, s2)")
-#         wBuff.append("  li a0, 0")
-#         wBuff.append("  li a1, 1")
-#         wBuff.append("  call print_multi_core_info")
-#         wBuff.append("  smp_resume(s1, s2)")
-#         wBuff.append("  // hart " + str(i))
-#         wBuff.append("  li s1, " + str(i))
-#         wBuff.append("  smp_pause(s1, s2)")
-#         wBuff.append("  csrr a0, mhartid")
-#         wBuff.append("  call multicore_mem_w")
-#         wBuff.append("  smp_resume(s1, s2)")
-#         wBuff.append("  // hart " + str(j))
-#         wBuff.append("  li s1, " + str(j))
-#         wBuff.append("  smp_pause(s1, s2)")
-#         wBuff.append("  csrr a0, mhartid")
-#         wBuff.append("  call multicore_mem_r")
-#         wBuff.append("  smp_resume(s1, s2)")
-#         wBuff.append("")
-
-# wBuff.append("#############################")
-# wBuff.append("  li s1, 0")
-# wBuff.append("  smp_pause(s1, s2)")
-# wBuff.append("  li sp, (PAYLOAD_DEST + 0xffff000)")
-# wBuff.append("  call main")
-# wBuff.append("  smp_resume(s1, s2)")
-
-# wBuff.append("  csrr a0, mhartid // hartid for next level bootloader")
-# wBuff.append("  la a1, dtb // dtb address for next level bootloader")
-# wBuff.append("  li s1, PAYLOAD_DEST")
-# wBuff.append("  jr s1")
-
-# wBuff.append("  .section .dtb")
-# wBuff.append("  .align 3")
-# wBuff.append("dtb:")
-# wBuff.append("")
-
+beforeBootTest(coreNum = 4, L2_cache_size = 1024, outputPath = "../fpga/src/main/resources/vcu118/sdboot")
