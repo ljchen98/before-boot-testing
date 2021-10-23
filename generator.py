@@ -1,5 +1,5 @@
-import os
 #coding=utf-8
+import os
 def generateTestConfig (coreNum, L2_cache_size, outputPath, wr_size = 10, wr_bit_size = 4):
     wBuff = []
     wBuff.append("#ifndef _TEST_CONFIG_H")
@@ -20,7 +20,7 @@ def generateTestConfig (coreNum, L2_cache_size, outputPath, wr_size = 10, wr_bit
     wBuff.append("#define OUTPUT_SHIFT 37                           // 在输出扫描的地址时，每 OUTPUT_SHIFT 个地址输出一次")
     wBuff.append("")
     wBuff.append("#endif")
-    f = open(outputPath + "testConfig.h", 'w')
+    f = open( outputPath + "/testConfig.h", 'w')
     f.writelines([line + '\n' for line in wBuff])
     f.close()
     return
@@ -36,13 +36,27 @@ def beforeBootTest (coreNum, L2_cache_size, outputPath):
         outputPath: 输出 testConfig.h 的路径
     """
     generateTestConfig(coreNum, L2_cache_size, outputPath)
-    val1 = os.system('chmod u+x ./util/setup_boot_test.sh')
-    val2 = os.system('chmod ./util/setup_boot_test.sh set ' + outputPath)
+    
+    val1 = os.system("chmod u+x ./util/setup_boot_test.sh")
+    if val1 != 0:
+        print("Error in chmod u+x ./util/setup_boot_test.sh. Exit.")
+        return -1
+    
+    val2 = os.system("./util/setup_boot_test.sh set " + outputPath)
+    if val2 != 0:
+        print("Error in ./util/setup_boot_test.sh set. Exit.")
+        return -1
     return
 
-def cleanTest():
+def cleanTest(coreNum, L2_cache_size, outputPath):
     val1 = os.system('chmod u+x ./util/setup_boot_test.sh')
-    val2 = os.system('chmod ./util/setup_boot_test.sh clean '+ outputPath)
+    if val1 != 0:
+        print("Error in chmod u+x ./util/setup_boot_test.sh. Exit.")
+        return -1
+    val2 = os.system('./util/setup_boot_test.sh clean ' + outputPath)
+    if val2 != 0:
+        print("Error in ./util/setup_boot_test.sh clean. Exit.")
+        return -1
     return
 
 beforeBootTest(coreNum = 4, L2_cache_size = 1024, outputPath = "../fpga/src/main/resources/vcu118/sdboot")

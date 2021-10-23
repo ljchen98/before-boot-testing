@@ -1,3 +1,4 @@
+#!/bin/bash
 set -e
 sdbootDir='./fpga/src/main/resources/vcu118/sdboot'
 
@@ -18,15 +19,30 @@ then
     sdbootDir="$2"
     # git clone https://github.com/ljchen98/before-boot-testing.git
     testingDir='./util'
-    mv ${sdbootDir}/sd.c ${sdbootDir}/sd.c.backup
-    mv ${sdbootDir}/head.S ${sdbootDir}/head.S.backup
-    mv ${sdbootDir}/kprintf.c ${sdbootDir}/kprintf.c.backup
-    mv ${sdbootDir}/include/smp.h ${sdbootDir}/include/smp.h.backup
+    if [ ! -f "${sdbootDir}/sd.c.backup" ];then
+        mv ${sdbootDir}/sd.c ${sdbootDir}/sd.c.backup
+        echo "Backup sd.c"
+    fi
+    if [ ! -f "${sdbootDir}/head.S.backup" ];then
+        mv ${sdbootDir}/head.S ${sdbootDir}/head.S.backup
+        echo "Backup head.S"
+    fi
+    if [ ! -f "${sdbootDir}/kprintf.c.backup" ];then
+        mv ${sdbootDir}/kprintf.c ${sdbootDir}/kprintf.c.backup
+        echo "Backup kprintf.c"
+    fi
+    if [ ! -f "${sdbootDir}/include/smp.h.backup" ];then
+        mv ${sdbootDir}/include/smp.h ${sdbootDir}/include/smp.h.backup
+        echo "Backup smp.h"
+    fi
     cp ${testingDir}/sd.c ${sdbootDir}/sd.c
     cp ${testingDir}/head.S ${sdbootDir}/head.S
     cp ${testingDir}/kprintf.c ${sdbootDir}/kprintf.c
     cp ${testingDir}/smp.h ${sdbootDir}/include/smp.h
     # rm -rf ${testingDir}
+    cd ${sdbootDir}
+    make clean
+    make
     echo "Set Finished."
     exit 0
 elif [ "$1" == "clean" ]
@@ -39,6 +55,8 @@ then
     echo "Clean Finished."
     exit 0
 else
+    echo "Argument 1: $1"
+    echo "Argument 2: $2"
     echo 'Unknown argument. Use argument `help` to learn more. Exit.'
     exit -1
 fi
