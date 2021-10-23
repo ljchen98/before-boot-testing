@@ -11,19 +11,19 @@ This is a before-boot testing for memory access and multi-core communication on 
 
 进入 Chipyard 的根目录，下载`setup_boot_test.sh`：
 
-```sh
-wget https://........
+```bash
+wget https://raw.githubusercontent.com/ljchen98/before-boot-testing/main/setup_boot_test.sh
 ```
 
 下载完成后，给予其执行权限：
 
-```sh
+```bash
 chmod u+x setup_boot_test.sh
 ```
 
 运行以配置好启动前的多核通讯测试用例：
 
-```
+```bash
 ./setup_boot_test.sh set
 ```
 
@@ -33,7 +33,7 @@ chmod u+x setup_boot_test.sh
 
 进入 `sdboot` 目录，尝试是否编译通过：
 
-```sh
+```bash
 # 假设当前目录在 Chipyard 的根目录下
 cd fpga/src/main/resources/vcu118/sdboot
 make clean # 最好先清除之前的编译
@@ -42,7 +42,7 @@ make
 
 如果编译通过，就可以回到 fpga 目录下，走 FPGA prototyping 的流程生成 bitstream，如：
 
-```sh
+```bash
 cd ../../../../../ # 回到 Chipyard/fpga 目录
 make SUB_PROJECT=vcu108 CONFIG=My4CoreRocketVCU108Config bitstream
 ```
