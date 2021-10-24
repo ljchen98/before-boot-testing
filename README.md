@@ -39,7 +39,7 @@ make SUB_PROJECT=vcu108 CONFIG=My4CoreRocketVCU108Config bitstream
 
 1. 运行 `beforeBootTestingGenerator.py`实质上是运行其中的 `beforeBootTest` 函数，故在其他 python 程序中调用该函数亦能工作，但需要保证：1）`util` 文件夹与 `beforeBootTestingGenerator.py` 在同一目录下，因为该函数会利用相对路径使用到 `util` 文件夹内的文件；2）给予该函数的 `outputPath` 参数需为到 `sdboot` 文件夹的相对路径。
 
-2. 若需要调用`beforeBootTest` 函数，需提供以下参数：1）核心数量 `coreNum`；2）`L2_cache_size`，用于计算访存范围的大小；3）文件替换路径，即 `sdboot` 的相对路径。
+2. 若需要调用`beforeBootTest` 函数，需提供以下参数：1）核心数量 `coreNum`；2）`L2_cache_size`，用于计算访存范围的大小；3）文件替换路径 `outputPath`，即 `sdboot` 的相对路径。
 
 3. 尽管`beforeBootTest` 函数会调用  `util/setup_boot_test.sh` 来备份 BootROM 的原始代码，但是如果需要恢复备份，需在项目文件夹`before-boot-testing` 下运行（最后一个参数为到 `sdboot` 文件夹的相对路径）：
 
