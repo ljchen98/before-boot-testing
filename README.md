@@ -12,7 +12,7 @@ This is a before-boot testing for memory access and multi-core communication on 
 进入 Chipyard 的根目录，克隆本项目：
 
 ```bash
-git clone git@github.com:ljchen98/before-boot-testing.git
+git clone https://www.github.com/ljchen98/before-boot-testing.git
 ```
 
 进入 `before-boot-testing` 文件夹，并运行 `beforeBootTestingGenerator.py`：
