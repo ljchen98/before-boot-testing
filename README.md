@@ -9,45 +9,53 @@ This is a before-boot testing for memory access and multi-core communication on 
 
 > 假设 Chipyard 与 Vivado 已经配置好，相应的环境变量已经设置（如 Chipyard 的 env.sh 与 vivado 的 settings64.sh）。
 
-进入 Chipyard 的根目录，下载`setup_boot_test.sh`：
+进入 Chipyard 的根目录，克隆本项目：
 
 ```bash
-wget https://raw.githubusercontent.com/ljchen98/before-boot-testing/main/setup_boot_test.sh
+git clone git@github.com:ljchen98/before-boot-testing.git
 ```
 
-下载完成后，给予其执行权限：
+进入 `before-boot-testing` 文件夹，并运行 `beforeBootTestingGenerator.py`：
 
 ```bash
-chmod u+x setup_boot_test.sh
+cd before-boot-testing
+python beforeBootTestingGenerator.py
 ```
 
-运行以配置好启动前的多核通讯测试用例：
+> `beforeBootTestingGenerator.py` 实质上是运行其中的 `beforeBootTest` 函数，主要完成下面三件事：
+>
+> - 根据函数参数生成测试用例的配置文件 `testConfig.h`；
+> - 调用 `util/setup_boot_test.sh`，备份 BootROM 原始代码中的 `head.S`、 `sd.c`、 `smp.h`、 `kprintf.c` 文件，并从本项目目录下的 `util` 文件夹中拷贝已加入测试用例支持的这些文件到相应位置；
+> - 编译 BootROM 新的代码。
+
+回到 Chipyard 的根目录，并进入 `fpga` 文件夹，走 FPGA prototyping 的流程生成 bitstream，如：
 
 ```bash
-./setup_boot_test.sh set
-```
-
-> 对于 `setup_boot_test.sh`，带上 `set` 参数以进行配置，再次带上 `clean` 参数以取消配置恢复到原始状态。
-
-调用 `microGenerator.py` 中的 `beforeBootTest` 函数以自动生成测试用例的配置 `testConfig.h`。
-
-进入 `sdboot` 目录，尝试是否编译通过：
-
-```bash
-# 假设当前目录在 Chipyard 的根目录下
-cd fpga/src/main/resources/vcu118/sdboot
-make clean # 最好先清除之前的编译
-make
-```
-
-如果编译通过，就可以回到 fpga 目录下，走 FPGA prototyping 的流程生成 bitstream，如：
-
-```bash
-cd ../../../../../ # 回到 Chipyard/fpga 目录
+cd ../fpga # 进入 Chipyard/fpga 目录
 make SUB_PROJECT=vcu108 CONFIG=My4CoreRocketVCU108Config bitstream
 ```
 
+备注：
 
+1. 运行 `beforeBootTestingGenerator.py`实质上是运行其中的 `beforeBootTest` 函数，故在其他 python 程序中调用该函数亦能工作，但需要保证：1）`util` 文件夹与 `beforeBootTestingGenerator.py` 在同一目录下，因为该函数会利用相对路径使用到 `util` 文件夹内的文件；2）给予该函数的 `outputPath` 参数需为到 `sdboot` 文件夹的相对路径。
+
+2. 若需要调用`beforeBootTest` 函数，需提供以下参数：1）核心数量 `coreNum`；2）`L2_cache_size`，用于计算访存范围的大小；3）文件替换路径，即 `sdboot` 的相对路径。
+
+3. 尽管`beforeBootTest` 函数会调用  `util/setup_boot_test.sh` 来备份 BootROM 的原始代码，但是如果需要恢复备份，需在项目文件夹`before-boot-testing` 下运行（最后一个参数为到 `sdboot` 文件夹的相对路径）：
+
+   ````bash
+   chmod u+x ./util/setup_boot_test.sh  # 如果脚本还没有执行权限
+   ./util/setup_boot_test.sh clean ../fpga/src/main/resources/vcu118/sdboot
+   ````
+
+4. 尽管`beforeBootTest` 函数会自动编译 BootROM 新的代码，但是如果需要手动编译，进入了`sdboot` 目录后，需要先清除以往的编译，再编译：
+
+   ```bash
+   # 假设当前目录在 Chipyard 的根目录下
+   cd fpga/src/main/resources/vcu118/sdboot
+   make clean # 最好先清除之前的编译
+   make
+   ```
 
 ## 工作原理介绍
 
