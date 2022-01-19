@@ -1,4 +1,6 @@
 # before-boot-testing
+> 2.0 更新：1) 增加了 BootROM 大小的修改 (`linker/memory.lds`)；2) 增加了对多个核心不暂停的支持 (`smp.h`)； 3) 增加了两个核心同时写内存的验证用例 (`head.S` 和 `sd.c`)；4) Makefile 可能出现错误的修正。
+
 ## 简介
 
 This is a before-boot testing for memory access and multi-core communication on Chipyard-generated SoC.

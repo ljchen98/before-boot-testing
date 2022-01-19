@@ -257,6 +257,12 @@ int print_multi_core_info(int core_num1, int core_num2)
 	return 0;
 }
 
+int print_concurrently_core_info(int core_num1, int core_num2)
+{
+	kprintf("\033[33m-----> CORE %u and CORE %u concurrently write first, and all COREs read \033[0m\r\n", core_num1, core_num2);
+	return 0;
+}
+
 static volatile DEFINED_TYPE * const mem_start_addr = (void *)(MEMORY_MEM_ADDR); // which is 0x80000000UL(32 bits)
 
 
@@ -393,6 +399,20 @@ int multicore_mem_w (int core_num)
 	return 0;
 }
 
+int concurrent_mem_w (int core_num)  
+{
+	// Core n would write to the n^th block (size of MEMORY_WR_SIZE) in memory
+	size_t for_begin = MEMORY_WR_SIZE * core_num;
+	size_t for_end = MEMORY_WR_SIZE * (core_num + 1);
+	kprintf("\033[33m--> CORE %u \033[0m [\033[33mBegin\033[0m] Concurrent Memory Write from %x to %x \r\n", core_num, for_begin, for_end);
+	for (size_t i = for_begin; i < for_end; i++){
+		mem_start_addr[i] = i % TYPE_RANGE;
+	}
+	kprintf("\033[33m--> CORE %u \033[0m [\033[33mFinished\033[0m] Concurrent Memory Write\r\n", core_num);
+	__asm__ __volatile__ ("fence.i" : : : "memory");
+	return 0;
+}
+
 int multicore_mem_r (int core_num)
 {
 	bool whetherError = false;
@@ -412,6 +432,45 @@ int multicore_mem_r (int core_num)
 		kprintf("\r[\033[33mFinished\033[0m] Multi-core Memory Read and Check \r\n\r\n");
 	}else{
 		kprintf("\r[\033[32mSuccessful\033[0m] Multi-core Memory Read and Check \r\n\r\n");
+	}
+	__asm__ __volatile__ ("fence.i" : : : "memory");
+	return 0;
+}
+
+int concurrent_mem_r (int core_num, int core_w)  
+// core_num: the core num doing the reading; 
+// core_w: the core having done the writing, e.g. 0000 1001 core 3 & 0 having done the writing  
+{
+	bool whetherError = false;
+	size_t for_begin, for_end;
+	kprintf("\033[33m--> CORE %u \033[0m\r\n", core_num);
+	kputs("[\033[33mBegin\033[0m] Check Concurrent Memory Write Result");
+	kputs("Reading and Checking Address...");
+	// core_w1
+
+	size_t get_and = 1; 
+	for (size_t j = 0; j < CORE_NUM; j++){
+		size_t temp = get_and & core_w;
+		get_and = get_and << 1;
+		if (temp == 0)
+			continue;
+		
+		for_begin = MEMORY_WR_SIZE * j;
+		for_end = MEMORY_WR_SIZE * (j + 1);
+		for (size_t i = for_begin; i < for_end; i++){
+			if (i % OUTPUT_SHIFT == 0)
+				kprintf("\r%x", mem_start_addr + i);
+			if (mem_start_addr[i] != i % TYPE_RANGE){
+				whetherError = true;
+				kprintf("\r[\033[31mError\033[0m] Mismatch in %x written by Core %u \r\n", mem_start_addr + i, j);
+				kputs("Reading and Checking Address...");
+			}
+		}
+	}
+	if (whetherError){
+		kprintf("\r[\033[33mFinished\033[0m] Check Concurrent Memory Write Result\r\n\r\n");
+	}else{
+		kprintf("\r[\033[32mSuccessful\033[0m] Check Concurrent Memory Write Result\r\n\r\n");
 	}
 	__asm__ __volatile__ ("fence.i" : : : "memory");
 	return 0;

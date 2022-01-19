@@ -35,10 +35,20 @@ then
         mv ${sdbootDir}/include/smp.h ${sdbootDir}/include/smp.h.backup
         echo "Backup smp.h"
     fi
+    if [ ! -f "${sdbootDir}/linker/memory.lds.backup" ];then
+        mv ${sdbootDir}/linker/memory.lds ${sdbootDir}/linker/memory.lds.backup
+        echo "Backup memory.lds"
+    fi
+    if [ ! -f "${sdbootDir}/Makefile" ];then
+        mv ${sdbootDir}/Makefile ${sdbootDir}/Makefile.backup
+        echo "Backup Makefile"
+    fi
     cp ${testingDir}/sd.c ${sdbootDir}/sd.c
     cp ${testingDir}/head.S ${sdbootDir}/head.S
     cp ${testingDir}/kprintf.c ${sdbootDir}/kprintf.c
     cp ${testingDir}/smp.h ${sdbootDir}/include/smp.h
+    cp ${testingDir}/memory.lds ${sdbootDir}/linker/memory.lds
+    cp ${testingDir}/Makefile ${sdbootDir}/Makefile
     # rm -rf ${testingDir}
     cd ${sdbootDir}
     make clean
@@ -52,6 +62,8 @@ then
     mv ${sdbootDir}/head.S.backup ${sdbootDir}/head.S 
     mv ${sdbootDir}/kprintf.c.backup ${sdbootDir}/kprintf.c 
     mv ${sdbootDir}/include/smp.h.backup ${sdbootDir}/include/smp.h
+    mv ${sdbootDir}/linker/memory.lds.backup ${sdbootDir}/linker/memory.lds
+    mv ${sdbootDir}/Makefile.backup ${sdbootDir}/Makefile
     echo "Clean Finished."
     exit 0
 else

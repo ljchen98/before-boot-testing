@@ -38,12 +38,18 @@ hart0_entry:
 /* 下面的 smp_pause 被更改：smp_pause 使用前需要给 reg1 指定不停止的 hart 
  */
 
-#define smp_pause(reg1, reg2)	 \
+/* Version2.0: 对于下面的 smp_pause，
+        reg1 需要在相应的位表明不停止的 hart，如hart 0 与 3 不停止，则 reg1 = 00001001
+ */
+
+#define smp_pause(reg1, reg2, reg3)	 \
   li reg2, 0x8			;\
   csrw mie, reg2		;\
-  /*li   reg1, NONSMP_HART	;*/ \
-  csrr reg2, mhartid		;\
-  bne  reg1, reg2, 42f
+  li reg2, 1        ;\
+  csrr reg3, mhartid;\
+  sll reg2, reg2, reg3;\
+  and reg2, reg2, reg1;\
+  beqz reg2, 42f
 
 #ifdef CLINT1_CTRL_ADDR
 // If a second CLINT exists, then make sure we:
