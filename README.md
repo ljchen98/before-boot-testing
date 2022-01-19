@@ -1,5 +1,5 @@
 # before-boot-testing
-> 2.0 更新：1) 增加了 BootROM 大小的修改 (`linker/memory.lds`)；2) 增加了对多个核心不暂停的支持 (`smp.h`)； 3) 增加了两个核心同时写内存的验证用例 (`head.S` 和 `sd.c`)；4) Makefile 可能出现错误的修正。
+> 2.0 版本的更新：1) 增加了 BootROM 大小的修改 (`linker/memory.lds`)；2) 增加了对多个核心不暂停的支持 (`smp.h`)； 3) 增加了两个核心同时并行写内存的验证用例 (`head.S` 和 `sd.c`)；4) 因原本的 Makefile 存在一个注释空格问题可能会报错，这里使用改正好的 Makefile 将其替换。
 
 ## 简介
 
@@ -74,6 +74,7 @@ make SUB_PROJECT=vcu108 CONFIG=My4CoreRocketVCU108Config bitstream
 - 各个核心单独背靠背地使用各个数据位写读内存；
 - 各个核心单独非背靠背地使用各个数据位先写一段内存，再读相应的内存；
 - 对于每两个核心，一个核心先写一段内存，另一个核心再读相应的内存。
+- (2.0) 任意选取两个核心，同时并行写内存，所写的位置相互交替，然后另一个核心再读相应的内存。
 
 ### 对 BootROM 的修改
 

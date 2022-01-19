@@ -83,6 +83,7 @@ concurrency_1:
   mv a1, s5
   call print_concurrently_core_info
   csrr a0, mhartid
+  mv a1, s8
   call concurrent_mem_w
   smp_resume(s1, s2)
   // core k reads and checks
@@ -90,11 +91,9 @@ concurrency_1:
 check_1:
   sll s1, s6, s7
   smp_pause(s1, s2, s10)
-  // ↓ do actual read and check
   csrr a0, mhartid
   mv a1, s8
   call concurrent_mem_r
-  // ↑ end
   smp_resume(s1, s2)
   addi s7, s7, 1            // k++
   blt s7, s3, check_1       // k < CORE_NUM
