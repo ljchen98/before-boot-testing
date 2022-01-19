@@ -39,7 +39,7 @@ then
         mv ${sdbootDir}/linker/memory.lds ${sdbootDir}/linker/memory.lds.backup
         echo "Backup memory.lds"
     fi
-    if [ ! -f "${sdbootDir}/Makefile" ];then
+    if [ ! -f "${sdbootDir}/Makefile.backup" ];then
         mv ${sdbootDir}/Makefile ${sdbootDir}/Makefile.backup
         echo "Backup Makefile"
     fi
