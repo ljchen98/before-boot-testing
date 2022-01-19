@@ -515,7 +515,7 @@ int concurrent_mem_cross_r (int core_num, int core_w)
 	kputs("Reading and Checking Address...");
 	// Find the num of total cores doing the writing concurrently
 	size_t total_core = 0;
-	mask = 1;
+	size_t mask = 1;
 	for (size_t i = 0; i < CORE_NUM; i++){
 		if ((core_w & mask) != 0)
 			total_core++;
