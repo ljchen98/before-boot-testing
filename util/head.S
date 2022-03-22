@@ -7,24 +7,22 @@
   .option norvc
   .globl _prog_start
 _prog_start:
-// Use Version 2.0 of smp_pause(reg1, reg2) & smp_resume(reg1, reg2):
-// Each bit of reg1 provided to smp_pause indicates which hartid would not pause
-// E.g. reg1 = 0000 1001 means that hartid 0 & 3 would not pause  
+// smp_pause 存在变更，使用说明请见 smp.h
   
-// initialize UART
+// 初始化 UART
   li sp, (PAYLOAD_DEST + 0xffff000)
-  li s1, 1                     // 0000 0001: assume hartid 0 not pause
+  li s1, 0xffffff00       // hart 0 不停止
   smp_pause(s1, s2, s10)
   call init_uart
   smp_resume(s1, s2)
 
   li s3, CORE_NUM 
 
-// Check each single core
-  li s6, 1
+// 单核检查
+  li s6, 0xffffff00
   li s4, 0                    // i = 0  
 single_core:
-  sll s1, s6, s4
+  add s1, s6, s4
   smp_pause(s1, s2, s10)
   csrr a0, mhartid
   call singlecore_mem_wr_B2B
@@ -38,15 +36,15 @@ single_core:
   addi s4, s4, 1            // i++
   blt s4, s3, single_core   // i < CORE_NUM
 
-// Check the communication of each pair of cores
-  li s6, 1
+// 核心对的检查
+  li s6, 0xffffff00
   li s4, 0                  // i = 0
 multi_core:
   li s5, 0                  // j = 0
 multi_core_1:
   beq s4, s5, increase      // if i == j, jump to increase (cannot form a pair of cores)
   // One core i for notice and write
-  sll s1, s6, s4
+  add s1, s6, s4
   smp_pause(s1, s2, s10)
   mv a0, s4
   mv a1, s5
@@ -55,7 +53,7 @@ multi_core_1:
   call multicore_mem_w
   smp_resume(s1, s2)
   // Another core j for read and check
-  sll s1, s6, s5
+  add s1, s6, s5
   smp_pause(s1, s2, s10)
   csrr a0, mhartid
   call multicore_mem_r
@@ -66,17 +64,17 @@ increase:
   addi s4, s4, 1            // i++
   blt s4, s3, multi_core    // i < CORE_NUM
 
-// Check the concurrency of multiple cores (two cores)
-  li s6, 1                  // s6 is always 1 used for left shift
+// 多核 (这里为两核) 并行访问的检查 
+  li s6, 0xffff0000         
   li s4, 0                  // i = 0
 concurrency:
   li s5, 0                  // j = 0
 concurrency_1:
   beq s4, s5, increase_con  // if i == j, jump to increase (cannot form a pair of cores)
   // core i & j concurrently write
-  sll s1, s6, s4
-  sll s7, s6, s5
-  or  s8, s1, s7            // s8 is indicating which core(s) not pause, e.g. 0000 1001 means that hartid 0 & 3 would not pause
+  add s1, s6, s4
+  sll s7, s5, 8
+  add s8, s1, s7 
   mv  s1, s8
   smp_pause(s1, s2, s10)
   mv a0, s4
@@ -85,11 +83,13 @@ concurrency_1:
   csrr a0, mhartid
   mv a1, s8
   call concurrent_mem_cross_w 
-  smp_resume(s1, s2)
+  mv s1, s8
+  smp_resume_double(s1, s2, s10)
   // core k reads and checks
   li s7, 0                // k = 0
 check_1:
-  sll s1, s6, s7
+  li s1, 0xffffff00
+  add s1, s1, s7
   smp_pause(s1, s2, s10)
   csrr a0, mhartid
   mv a1, s8

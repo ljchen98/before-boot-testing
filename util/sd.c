@@ -479,7 +479,21 @@ int concurrent_mem_cross_w (int core_num, int core_w)
 // core_num: the core num doing the writing; 
 // core_w: all the cores doing the writing, e.g. 0000 1001 core 3 & 0 doing the writing  
 {
+	size_t total_core = 2;
+	size_t coreID_0 = core_w & 0xff;
+	size_t coreID_1 = (core_w >> 8) & 0xff;
+	size_t temp;
+	if (coreID_0 > coreID_1){
+		temp = coreID_0;
+		coreID_0 = coreID_1;
+		coreID_1 = temp;
+	}
 	size_t rank = 0;
+	if (core_num == coreID_1){
+		rank = 1;
+	}
+
+/* 	size_t rank = 0;
 	size_t mask = 1;
 	// Find the rank of the core currently doing the writing of all writing cores 
 	for (size_t i = 0; i < core_num; i++){
@@ -494,7 +508,8 @@ int concurrent_mem_cross_w (int core_num, int core_w)
 		if ((core_w & mask) != 0)
 			total_core++;
 		mask = mask << 1;
-	}
+	} */
+	
 	// Each core begins cross writing...
 	kprintf("\033[33m--> CORE %u \033[0m [\033[33mBegin\033[0m] Concurrent Memory Cross Write\r\n", core_num);
 	for (size_t i = rank; i < MEMORY_WR_SIZE; i = i + total_core){
@@ -513,21 +528,21 @@ int concurrent_mem_cross_r (int core_num, int core_w)
 	kprintf("\033[33m--> CORE %u \033[0m\r\n", core_num);
 	kputs("[\033[33mBegin\033[0m] Check Concurrent Memory Write Result");
 	kputs("Reading and Checking Address...");
-	// Find the num of total cores doing the writing concurrently
+/* 	// Find the num of total cores doing the writing concurrently
 	size_t total_core = 0;
 	size_t mask = 1;
 	for (size_t i = 0; i < CORE_NUM; i++){
 		if ((core_w & mask) != 0)
 			total_core++;
 		mask = mask << 1;
-	}
+	} */
 	// Begin reading and checking
 	for (size_t i = 0; i < MEMORY_WR_SIZE; i++){
 		if (i % OUTPUT_SHIFT == 0)
 			kprintf("\r%x", mem_start_addr + i);
 		if (mem_start_addr[i] != i % TYPE_RANGE){
 			// From the rank (temp) to get the core ID
-			size_t temp = i % total_core;
+/* 			size_t temp = i % total_core;
 			mask = 1;
 			size_t problem_core = -1;
 			for (size_t i = 0; i < CORE_NUM; i++){
@@ -540,9 +555,10 @@ int concurrent_mem_cross_r (int core_num, int core_w)
 					}
 				}	
 				mask = mask << 1;
-			}
+			} */
 			whetherError = true;
-			kprintf("\r[\033[31mError\033[0m] Mismatch in %x written by Core %u \r\n", mem_start_addr + i, problem_core);
+			kprintf("\r[\033[31mError\033[0m] Mismatch in %x \r\n", mem_start_addr + i);
+			// kprintf("\r[\033[31mError\033[0m] Mismatch in %x written by Core %u \r\n", mem_start_addr + i, problem_core);
 			kputs("Reading and Checking Address...");
 		}
 	}
