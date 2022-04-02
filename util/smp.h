@@ -9,8 +9,10 @@
 #endif
 #define CLINT_END_HART_IPI CLINT_CTRL_ADDR + (MAX_HARTS*4)
 #define CLINT1_END_HART_IPI CLINT1_CTRL_ADDR + (MAX_HARTS*4)
-#define SYN_ADDR CLINT_END_HART_IPI // 定义这个地址为一个公共空间，用于多核的同步
-#define SYN_ADDR_END SYN_ADDR + (MAX_HARTS*4)
+// #define SYN_ADDR CLINT_END_HART_IPI // 定义这个地址为一个公共空间，用于多核的同步
+// #define SYN_ADDR_END SYN_ADDR + (MAX_HARTS*4)
+#define SYN_ADDR CLINT_CTRL_ADDR // 使用 CLINT_CTRL 地址空间，用于多核的同步
+#define SYN_ADDR_END CLINT_END_HART_IPI
 
 // The hart that non-SMP tests should run on
 #ifndef NONSMP_HART
@@ -38,7 +40,7 @@ hart0_entry:
 
 /* Version 3.0: 
  *     smp_pause 用于暂停一些 (实际上是放入等待中断状态) 不希望运行的 hart。
- *     这里修改了 smp_pause, 使其能够让多达两个 (可以扩展到四个) hart 不停止。
+ *     这里修改了 smp_pause, 使其能够让多达两个 hart 不停止。
  *     32 位的 reg1，从低到高每 8 位代表需要不停止的 hart。这 8 位中，0~254 代表 hard id。255 代表无效。 (注意！不能有大于等于 255 个 hart!!)
  *     例如：reg1 = 11111111 11111111 00000011 00000000 代表 hart 0 和 3 不停止。
  */
@@ -128,6 +130,7 @@ hart0_entry:
 #else
 
 #define smp_resume(reg1, reg2)	 \
+  /* Trigger software interrupt on CLINT0 */ \
   li reg1, CLINT_CTRL_ADDR	;\
 41:				;\
   li reg2, 1			;\
@@ -135,16 +138,19 @@ hart0_entry:
   addi reg1, reg1, 4		;\
   li reg2, CLINT_END_HART_IPI	;\
   blt reg1, reg2, 41b		;\
+  /* Wait to receive software interrupt */ \
 42:				;\
   wfi    			;\
   csrr reg2, mip		;\
   andi reg2, reg2, 0x8		;\
   beqz reg2, 42b		;\
+  /* Clear own software interrupt bit */\
   li reg1, CLINT_CTRL_ADDR	;\
   csrr reg2, mhartid		;\
   slli reg2, reg2, 2		;\
   add reg2, reg2, reg1		;\
   sw zero, 0(reg2)		;\
+  /* Wait for all software interrupt bits to be cleared on CLINT0 */ \
 41:				;\
   lw reg2, 0(reg1)		;\
   bnez reg2, 41b		;\
@@ -163,7 +169,7 @@ hart0_entry:
   add reg3, reg3, reg2 ;\
   li reg2, 1; \
   sw reg2, 0(reg3);\
-  /* 查看 hart1 是否到同步位置 */ \
+  /* 查看 hart0 (低 8 位) 是否到同步位置 */ \
   li reg3, SYN_ADDR ;\
   andi reg2, reg1, 0xff; \
   slli reg2, reg2, 2; \
@@ -171,7 +177,7 @@ hart0_entry:
 40:    ;\
   lw reg2, 0(reg3); \
   beqz reg2, 40b; \
-  /* 查看 hart2 是否到同步位置 */  \
+  /* 查看 hart1 (8 ~ 15位) 是否到同步位置 */  \
   li reg3, SYN_ADDR ;\
   srli reg2, reg1, 8; \
   andi reg2, reg2, 0xff; \
@@ -180,18 +186,28 @@ hart0_entry:
 40:    ;\
   lw reg2, 0(reg3); \
   beqz reg2, 40b; \
-  /* 其中一个核心清除同步信号并触发软件中断 */ \
+  /* 等待 10000 个 cycles 再清除，防止卡死？ */\
+  li reg3, 1000   ;\
+41:          ;\
+  nop                    ;\
+  addi reg3, reg3, -1    ;\
+  bnez reg3, 41b         ;\
+  /* 各自清清除自己的同步信号 */ \
+  li reg3, SYN_ADDR ;\
+  csrr reg2, mhartid ;\
+  slli reg2, reg2, 2; \
+  add reg3, reg3, reg2 ;\
+  sw zero, 0(reg3);\
+  /* 其中hart0 触发所有核心的软件中断 */ \
   csrr reg2, mhartid; \
   andi reg3, reg1, 0xff; \
   bne reg2, reg3, 42f; \
-  /* 清除 */ \
-  li reg3, SYN_ADDR; \
-40:   ;\
-  li reg2, 0; \
-  sw reg2, 0(reg3); \
-  addi reg3, reg3, 4; \
-  li reg2, SYN_ADDR_END; \
-  blt reg3, reg2, 40b ;\
+  /* 等待 10000 个 cycles 再清除，防止卡死？ */\
+  li reg3, 1000   ;\
+41:          ;\
+  nop                    ;\
+  addi reg3, reg3, -1    ;\
+  bnez reg3, 41b         ;\
   /* Trigger software interrupt on CLINT0 */ \
   li reg1, CLINT_CTRL_ADDR	;\
 41:				;\

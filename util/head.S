@@ -18,7 +18,7 @@ _prog_start:
 
   li s3, CORE_NUM 
 
-// 单核检查
+# // 单核检查
   li s6, 0xffffff00
   li s4, 0                    // i = 0  
 single_core:
@@ -36,7 +36,7 @@ single_core:
   addi s4, s4, 1            // i++
   blt s4, s3, single_core   // i < CORE_NUM
 
-// 核心对的检查
+# // 核心对的检查
   li s6, 0xffffff00
   li s4, 0                  // i = 0
 multi_core:
@@ -64,47 +64,75 @@ increase:
   addi s4, s4, 1            // i++
   blt s4, s3, multi_core    // i < CORE_NUM
 
-// 多核 (这里为两核) 并行访问的检查 
-  li s6, 0xffff0000         
+# // 多核 (这里为两核) 并行访问的检查 
   li s4, 0                  // i = 0
 concurrency:
   li s5, 0                  // j = 0
 concurrency_1:
   beq s4, s5, increase_con  // if i == j, jump to increase (cannot form a pair of cores)
   // core i & j concurrently write
-  add s1, s6, s4
-  sll s7, s5, 8
-  add s8, s1, s7 
-  mv  s1, s8
+    // 先输出开始提示
+  li s1, 0xffffff00
+  add s1, s1, s4
   smp_pause(s1, s2, s10)
   mv a0, s4
   mv a1, s5
-  call print_concurrently_core_info
+  call print_concurrently_core_info_begin
+  smp_resume(s1, s2)
+    // 正式并行写
+  li s6, 0xffff0000   
+  add s1, s6, s4
+  slli s7, s5, 8
+  add s8, s1, s7 
+  mv  s1, s8
+  smp_pause(s1, s2, s10)
   csrr a0, mhartid
   mv a1, s8
   call concurrent_mem_cross_w 
+  li s6, 0xffff0000   
+  add s1, s6, s4
+  slli s7, s5, 8
+  add s8, s1, s7 
   mv s1, s8
   smp_resume_double(s1, s2, s10)
-  // core k reads and checks
+    // 写完提示
+  li s1, 0xffffff00
+  add s1, s1, s4
+  smp_pause(s1, s2, s10)
+  mv a0, s4
+  mv a1, s5
+  call print_concurrently_core_writing_done
+  smp_resume(s1, s2)
+  // core k read and check
   li s7, 0                // k = 0
 check_1:
   li s1, 0xffffff00
   add s1, s1, s7
   smp_pause(s1, s2, s10)
   csrr a0, mhartid
-  mv a1, s8
   call concurrent_mem_cross_r
   smp_resume(s1, s2)
   addi s7, s7, 1            // k++
-  blt s7, s3, check_1       // k < CORE_NUM
+  li s3, CORE_NUM 
+  blt s7, s3, check_1       // if k < CORE_NUM
+  //再输出完成提示
+  li s1, 0xffffff00
+  add s1, s1, s4
+  smp_pause(s1, s2, s10)
+  mv a0, s4
+  mv a1, s5
+  call print_concurrently_core_info_end
+  smp_resume(s1, s2)
 increase_con:    
   addi s5, s5, 1            // j++
-  blt s5, s3, concurrency_1 // j < CORE_NUM
+  li s3, CORE_NUM 
+  blt s5, s3, concurrency_1 // if j < CORE_NUM
   addi s4, s4, 1            // i++
-  blt s4, s3, concurrency   // i < CORE_NUM
+  li s3, CORE_NUM 
+  blt s4, s3, concurrency   // if i < CORE_NUM
 
 // Other stuff before start system
-  li s1, 1                  // 0000 0001: assume hartid 0 not pause
+  li s1, 0xffffff00         // hartid 0 not pause
   smp_pause(s1, s2, s10)
   li sp, (PAYLOAD_DEST + 0xffff000)
   call main

@@ -263,6 +263,25 @@ int print_concurrently_core_info(int core_num1, int core_num2)
 	return 0;
 }
 
+int print_concurrently_core_info_begin(int core_num1, int core_num2)
+{
+	kprintf("\033[33m-----> CORE %u and CORE %u concurrently write first, and all COREs read \033[0m\r\n", core_num1, core_num2);
+	return 0;
+}
+
+int print_concurrently_core_writing_done(int core_num1, int core_num2)
+{
+	kprintf("\r\n[\033[32mSuccessful\033[0m] CORE %u and CORE %u concurrently write\r\n", core_num1, core_num2);
+	return 0;
+}
+
+int print_concurrently_core_info_end(int core_num1, int core_num2)
+{
+	kprintf("\033[33m-----> Finished \033[0m \r\n\r\n");
+	return 0;
+}
+
+
 static volatile DEFINED_TYPE * const mem_start_addr = (void *)(MEMORY_MEM_ADDR); // which is 0x80000000UL(32 bits)
 
 
@@ -474,58 +493,42 @@ int concurrent_mem_r (int core_num, int core_w)
 	return 0;
 }
 
-int concurrent_mem_cross_w (int core_num, int core_w)  
+int concurrent_mem_cross_w (int core_num, size_t core_w)  
 // Cross Writing: n^th Core doing the writing would write to every n^th address in memory
-// core_num: the core num doing the writing; 
-// core_w: all the cores doing the writing, e.g. 0000 1001 core 3 & 0 doing the writing  
+// core_num: the coreID doing the writing; 
 {
 	size_t total_core = 2;
-	size_t coreID_0 = core_w & 0xff;
-	size_t coreID_1 = (core_w >> 8) & 0xff;
-	size_t temp;
-	if (coreID_0 > coreID_1){
-		temp = coreID_0;
-		coreID_0 = coreID_1;
-		coreID_1 = temp;
-	}
 	size_t rank = 0;
-	if (core_num == coreID_1){
-		rank = 1;
+	for (size_t i = 0; i < total_core; i++){
+		size_t current_coreID = core_w & 0xff;
+		if (current_coreID < core_num){
+			rank++;
+		}
+		core_w = core_w >> 8;
 	}
 
-/* 	size_t rank = 0;
-	size_t mask = 1;
-	// Find the rank of the core currently doing the writing of all writing cores 
-	for (size_t i = 0; i < core_num; i++){
-		if ((core_w & mask) != 0)
-			rank++;
-		mask = mask << 1;
-	}
-	// Find the num of total cores doing the writing concurrently
-	size_t total_core = 0;
-	mask = 1;
-	for (size_t i = 0; i < CORE_NUM; i++){
-		if ((core_w & mask) != 0)
-			total_core++;
-		mask = mask << 1;
-	} */
-	
 	// Each core begins cross writing...
-	kprintf("\033[33m--> CORE %u \033[0m [\033[33mBegin\033[0m] Concurrent Memory Cross Write\r\n", core_num);
+	// kprintf("\033[33m--> CORE %u \033[0m [\033[33mBegin\033[0m] Concurrent Memory Cross Write\r\n", core_num);
+	// kprintf("C%u\r\n", core_num);
+	kprintf("c");
 	for (size_t i = rank; i < MEMORY_WR_SIZE; i = i + total_core){
 		mem_start_addr[i] = i % TYPE_RANGE;
 	}
-	kprintf("\033[33m--> CORE %u \033[0m [\033[33mFinished\033[0m] Concurrent Memory Cross Write\r\n", core_num);
+	// kprintf("\033[33m--> CORE %u \033[0m [\033[33mFinished\033[0m] Concurrent Memory Cross Write\r\n", core_num);
+	// kprintf("C");
+	kprintf("%u", core_num);
 	__asm__ __volatile__ ("fence.i" : : : "memory");
 	return 0;
 }
 
-int concurrent_mem_cross_r (int core_num, int core_w)  
+// int concurrent_mem_cross_r (int core_num, int core_w) 
+int concurrent_mem_cross_r (int core_num)   
 // core_num: the core num doing the reading; 
 // core_w: the core having done the writing, e.g. 0000 1001 core 3 & 0 having done the writing  
 {
 	bool whetherError = false;
 	kprintf("\033[33m--> CORE %u \033[0m\r\n", core_num);
+	// kprintf("Begin Check Concurrent Memory Write Result\r\n");
 	kputs("[\033[33mBegin\033[0m] Check Concurrent Memory Write Result");
 	kputs("Reading and Checking Address...");
 /* 	// Find the num of total cores doing the writing concurrently
@@ -541,21 +544,6 @@ int concurrent_mem_cross_r (int core_num, int core_w)
 		if (i % OUTPUT_SHIFT == 0)
 			kprintf("\r%x", mem_start_addr + i);
 		if (mem_start_addr[i] != i % TYPE_RANGE){
-			// From the rank (temp) to get the core ID
-/* 			size_t temp = i % total_core;
-			mask = 1;
-			size_t problem_core = -1;
-			for (size_t i = 0; i < CORE_NUM; i++){
-				if ((core_w & mask) != 0){
-					if (temp == 0){
-						problem_core = i;
-						break;
-					}else{
-						temp --;
-					}
-				}	
-				mask = mask << 1;
-			} */
 			whetherError = true;
 			kprintf("\r[\033[31mError\033[0m] Mismatch in %x \r\n", mem_start_addr + i);
 			// kprintf("\r[\033[31mError\033[0m] Mismatch in %x written by Core %u \r\n", mem_start_addr + i, problem_core);
@@ -563,9 +551,9 @@ int concurrent_mem_cross_r (int core_num, int core_w)
 		}
 	}
 	if (whetherError){
-		kprintf("\r[\033[33mFinished\033[0m] Check Concurrent Memory Write Result\r\n\r\n");
+		kprintf("\r[\033[33mFinished\033[0m] Check Concurrent Memory Write Result\r\n");
 	}else{
-		kprintf("\r[\033[32mSuccessful\033[0m] Check Concurrent Memory Write Result\r\n\r\n");
+		kprintf("\r[\033[32mSuccessful\033[0m] Check Concurrent Memory Write Result\r\n");
 	}
 	__asm__ __volatile__ ("fence.i" : : : "memory");
 	return 0;
